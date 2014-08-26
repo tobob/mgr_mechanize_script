@@ -1,47 +1,116 @@
 require 'mechanize'
+require 'bundler'
+Bundler.require(:default)
+
+#constants
+
+HITS = 1
+TIME = 1
+LOOPS = 1
 
 class PhantomUser
   def initialize(ip, time)
     p time
+    @post_id = nil
     @time = time
     @ip = ip
     @agent = Mechanize.new
     @whole_time = 0
+    @text_generator = LoremIpsum::Generator.new
   end
-  
+
   def perform_work
     sleep(@time)
-    visit_posts 
+    visit_posts
+    next_pagination_page
+    create_post
+    edit_post
+    create_comment
+    delete_comment
   end
- 
+
   def init_time
     @start_time = Time.now
   end
- 
+
   def count_time
     @whole_time += (Time.now - @start_time)
-  end  
+  end
 
   def visit_posts
     init_time
     @agent.get(@ip+"/posts")
     count_time
   end
-  
+
+  def next_pagination_page
+    init_time
+    doc = @agent.page
+    link = doc.link_with(text: "Next ›")
+    link = doc.link_with(text: "Next →")
+    link.click unless link.nil?
+    count_time
+  end
+
+  def create_post
+    init_time
+    doc = @agent.page
+    doc.link_with(text: "New Post").click
+    form = @agent.page.form
+    title_input = form.field_with(id: "post_title")
+    title_input.value = @text_generator.generate({words: 10})
+    content_input = form.field_with(id: "post_content")
+    content_input.value = @text_generator.generate({words: 20})
+    form.submit
+    @post_id = @agent.page.uri.to_s[/posts\/[\d]*/][6 .. -1]
+    count_time
+  end
+
+  def edit_post
+    init_time
+    doc = @agent.page
+    doc.link_with(text: "Edit").click
+    form = @agent.page.form
+    content_input = form.field_with(id: "post_content")
+    content_input.value = "NEW TEXT FOR POST! LOREM IPSUM"
+    form.submit
+    count_time
+  end
+
+  def create_comment
+    init_time
+    doc = @agent.page
+    form = doc.form
+    content_input = form.field_with(id: "comment_content")
+    content_input.value = "THIS IS COMMENT"
+    form.submit
+    count_time
+  end
+
+  def delete_comment
+    init_time
+    doc = @agent.page
+    href = doc.link_with(text: "Delete Comment").href
+    @agent.delete(@ip+href)
+    count_time
+  end
+
   def report
     p @whole_time
   end
 end
 
 def one_worker(time)
-  phantom = PhantomUser.new("http://localhost", time)
+  phantom = PhantomUser.new("http://localhost:3000", time)
   phantom.perform_work
   phantom.report
 end
+generator = LoremIpsum::Generator.new
+p generator.generate({words: 10})
 threads = []
-10.times do |i|
-  5.times do
-    t = Thread.new{one_worker(i*5)}
+LOOPS.times do |i|
+  HITS.times do
+    t = Thread.new{one_worker(i*TIME)}
     threads << t
   end
 end
