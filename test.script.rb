@@ -106,13 +106,7 @@ def one_worker(time)
 end
 
 config_array = [
-  [ 1, 1, 5 ],
-  [ 1, 5, 5 ],
-  [ 5, 1, 5 ],
-  [ 20, 1, 5],
-  [ 40, 1, 5],
-  [ 40, 5, 5],
-  [ 100, 1, 1] 
+  [ 1, 1, 5 ]
 ]
 i = 0
 config_array.each do |config_line|
